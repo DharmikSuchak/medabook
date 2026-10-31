@@ -43,8 +43,10 @@ if (!process.env.MONGO_URI) {
     .connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 10000,
     })
-    .then(() => {
+    .then(async () => {
       console.log('Successfully connected to MongoDB');
+      const { seedDoctors } = require('./utils/seedDoctors');
+      await seedDoctors();
     })
     .catch((err) => {
       console.error('MongoDB connection error:', err.message);
