@@ -48,6 +48,20 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// GET/POST /api/doctors/seed - seed dummy doctors and slots
+const handleSeed = async (req, res) => {
+  try {
+    const { seedDoctors } = require('../utils/seedDoctors');
+    await seedDoctors(true);
+    const count = await User.countDocuments({ role: 'doctor' });
+    res.json({ message: 'Seeded dummy doctors successfully', totalDoctors: count });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+router.get('/seed', handleSeed);
+router.post('/seed', handleSeed);
+
 // GET /api/doctors/me - current doctor's own profile + schedule
 router.get('/me', protect, async (req, res) => {
   try {
@@ -196,18 +210,9 @@ router.delete('/block/:blockId', protect, async (req, res) => {
 
     await invalidateDoctorCache(req.user._id.toString());
     res.json({ message: 'Blocked period removed', doctor });
-// POST/GET /api/doctors/seed - seed dummy doctors and slots
-const handleSeed = async (req, res) => {
-  try {
-    const { seedDoctors } = require('../utils/seedDoctors');
-    await seedDoctors(true);
-    const count = await User.countDocuments({ role: 'doctor' });
-    res.json({ message: 'Seeded dummy doctors successfully', totalDoctors: count });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
-};
-router.post('/seed', handleSeed);
-router.get('/seed', handleSeed);
+});
 
 module.exports = router;
