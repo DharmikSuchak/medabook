@@ -339,7 +339,7 @@ function RichCalendar({ value, min, onChange }) {
       </button>
 
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 500, background: '#fff', borderRadius: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', padding: '16px', animation: 'calIn 0.18s ease' }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, minWidth: 280, width: 280, zIndex: 1000, background: '#fff', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.18)', border: '1px solid #e2e8f0', padding: '16px', animation: 'calIn 0.18s ease' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
             <button onClick={prevMonth} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}>
               <Icon name="chevronLeft" size={16} />
@@ -629,7 +629,8 @@ function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
     setSlotsLoading(true)
     setReschedule(r => ({ ...r, newDate: date, slots: [], newSlot: null }))
     try {
-      const res = await api.get('/slots', { params: { doctorId: appt.doctor._id, date, timezone: tz } })
+      const docId = appt.doctor?._id || appt.doctor
+      const res = await api.get('/slots', { params: { doctorId: docId, date, timezone: tz } })
       setReschedule(r => ({ ...r, slots: res.data.slots || [] }))
     } catch { showToast('Failed to load slots', 'error') }
     finally { setSlotsLoading(false) }
@@ -673,7 +674,7 @@ function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
             const isRescheduling = reschedule?.appt?._id === a._id
 
             return (
-              <div key={a._id} style={{ background: '#fff', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 0 0 1px rgba(0,0,0,0.03),0 2px 8px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+              <div key={a._id} style={{ background: '#fff', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 0 0 1px rgba(0,0,0,0.03),0 2px 8px rgba(0,0,0,0.04)', overflow: isRescheduling ? 'visible' : 'hidden', position: 'relative', zIndex: isRescheduling ? 40 : 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 700, flexShrink: 0 }}>
                     {a.doctor?.name?.[0] || 'D'}
@@ -720,16 +721,16 @@ function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
 
                 {/* Inline reschedule panel */}
                 {isRescheduling && (
-                  <div style={{ borderTop: '1px solid #f1f5f9', padding: '16px 20px', background: '#f8fafc' }}>
+                  <div style={{ borderTop: '1px solid #f1f5f9', padding: '20px', background: '#f8fafc', borderRadius: '0 0 16px 16px', overflow: 'visible', position: 'relative' }}>
                     <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 14, marginBottom: 12 }}>Reschedule to a new slot</div>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                      <div>
+                    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      <div style={{ width: 280, position: 'relative', zIndex: 100 }}>
                         <RichCalendar value={reschedule.newDate} min={new Date().toISOString().slice(0,10)} onChange={fetchRescheduleSlots} />
                       </div>
-                      {slotsLoading && <div style={{ marginTop: 22 }}><Sk h={36} w={280} /></div>}
+                      {slotsLoading && <div style={{ marginTop: 6 }}><Sk h={36} w={260} /></div>}
                       {!slotsLoading && reschedule.slots.length > 0 && (
-                        <div>
-                          <label style={labelStyle}>Pick a slot</label>
+                        <div style={{ flex: 1, minWidth: 260 }}>
+                          <label style={{ ...labelStyle, marginBottom: 6 }}>Pick a slot ({TZ_LABELS[tz] || tz})</label>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                             {reschedule.slots.map((s, i) => {
                               const on = reschedule.newSlot?.startUtc === s.startUtc
@@ -744,10 +745,16 @@ function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
                         </div>
                       )}
                       {!slotsLoading && reschedule.newDate && reschedule.slots.length === 0 && (
-                        <div style={{ marginTop: 22, fontSize: 13, color: '#94a3b8' }}>No slots on this day</div>
+                        <div style={{ marginTop: 8, fontSize: 13, color: '#94a3b8' }}>No available slots on this day</div>
                       )}
                     </div>
-                    <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                    {reschedule.newSlot && (
+                      <div style={{ marginTop: 14, padding: '10px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, fontSize: 13, color: '#0369a1', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 600 }}>Selected slot:</span>
+                        <strong>{reschedule.newSlot.displayLocal} ({TZ_LABELS[tz] || tz})</strong>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                       <button onClick={submitReschedule} disabled={!reschedule.newSlot || submitting}
                         style={{ padding: '9px 20px', background: (!reschedule.newSlot || submitting) ? '#94a3b8' : '#0284c7', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: (!reschedule.newSlot || submitting) ? 'not-allowed' : 'pointer' }}>
                         {submitting ? 'Rescheduling…' : 'Confirm Reschedule'}
