@@ -22,12 +22,16 @@ router.post('/sync', checkJwt, async (req, res) => {
 
     let user = await User.findOne({ auth0Id })
 
+    const cleanName = (name && !name.includes('@'))
+      ? name
+      : (user?.name || (email ? email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'User'))
+
     if (!user) {
       // First time this Auth0 user hits our backend — save detected timezone
-      user = await User.create({ auth0Id, name, email, picture, ...(validTz && { timezone: validTz }) })
+      user = await User.create({ auth0Id, name: cleanName, email, picture, ...(validTz && { timezone: validTz }) })
     } else {
-      // Keep name/picture fresh from Auth0; auto-set timezone if not yet saved
-      user.name    = name    || user.name
+      // Keep name fresh from Auth0 only if Auth0 provides a real name (not raw email)
+      if (name && !name.includes('@')) user.name = name
       user.picture = picture || user.picture
       if (validTz && !user.timezone) user.timezone = validTz
       await user.save()
