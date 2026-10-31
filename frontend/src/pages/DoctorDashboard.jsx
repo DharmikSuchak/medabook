@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import { useAppUser } from '../context/UserContext'
 import api from '../api'
@@ -776,6 +776,10 @@ export default function DoctorDashboard() {
   const [toast, setToast] = useState(null)
   const [doctor, setDoctor] = useState(appUser)
   const [showProfile, setShowProfile] = useState(false)
+
+  useEffect(() => {
+    if (appUser) setDoctor(appUser)
+  }, [appUser])
 
   const handleTzChange = async (newTz) => {
     try {

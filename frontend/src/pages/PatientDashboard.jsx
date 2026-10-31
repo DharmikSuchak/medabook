@@ -915,6 +915,10 @@ export default function PatientDashboard() {
   const [toast, setToast]         = useState(null)
   const [patient, setPatient]     = useState(appUser)
 
+  useEffect(() => {
+    if (appUser) setPatient(appUser)
+  }, [appUser])
+
   const showToast = useCallback((msg, type = 'success') => setToast({ msg, type }), [])
 
   const fetchAppointments = useCallback(async () => {
