@@ -1,12 +1,11 @@
 const express = require('express');
 const { DateTime } = require('luxon');
-const Redis = require('ioredis');
-const User = require('../models/User');
 const Appointment = require('../models/Appointment');
+const User = require('../models/User');
 const { protect, requireRole } = require('../middleware/auth');
+const redis = require('../utils/redisClient');
 
 const router = express.Router();
-const redis = new Redis(process.env.REDIS_URL || 'redis://redis:6379');
 
 // Cache TTL constants
 const DOCTOR_LIST_TTL = 60;       // 60 seconds for doctor list

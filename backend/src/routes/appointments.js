@@ -1,12 +1,11 @@
 const express = require('express');
 const { DateTime } = require('luxon');
-const Redis = require('ioredis');
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const { protect, requireRole } = require('../middleware/auth');
+const redis = require('../utils/redisClient');
 
 const router = express.Router();
-const redis = new Redis(process.env.REDIS_URL);
 const LOCK_TTL = parseInt(process.env.SLOT_LOCK_TTL) || 120; // seconds
 
 // Helper: generate slot lock key
