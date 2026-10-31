@@ -1,0 +1,95 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: slotzero-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: slotzero2024
+      MONGO_INITDB_DATABASE: slotzero
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - slotzero-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: slotzero-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - slotzero-net
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: slotzero-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGO_URI: mongodb://admin:slotzero2024@mongodb:27017/slotzero?authSource=admin
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: slotzero_jwt_super_secret_key_2024
+      JWT_EXPIRES_IN: 7d
+      SLOT_LOCK_TTL: 120
+      AUTH0_DOMAIN: dev-ny1p5ziqx62yz11p.us.auth0.com
+      AUTH0_AUDIENCE: https://api.medabook.com
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - slotzero-net
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: slotzero-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+      VITE_AUTH0_DOMAIN: dev-ny1p5ziqx62yz11p.us.auth0.com
+      VITE_AUTH0_CLIENT_ID: W5cFLZdnm95ojXfTpxmxaSRrUEwruprn
+      VITE_AUTH0_AUDIENCE: https://api.medabook.com
+    depends_on:
+      - backend
+    networks:
+      - slotzero-net
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+networks:
+  slotzero-net:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  redis_data:

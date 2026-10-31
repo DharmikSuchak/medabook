@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment files
+.env
+.env.*
+*.env
+backend/.env
+frontend/.env
+
+# Build outputs
+dist/
+build/
+
+# Logs & OS / IDE files
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Ignore Extra folder
+Extra/
+extra/
+Extra
+extra
