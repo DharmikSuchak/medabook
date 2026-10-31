@@ -681,7 +681,7 @@ function BlockedTab({ doctor, onSaved, showToast }) {
     if (new Date(form.start) >= new Date(form.end)) return showToast('End must be after start', 'error')
     setSaving(true)
     try {
-      const res = await api.post('/doctors/block', form)
+      const res = await api.post('/doctors/block', { ...form, timezone: tz })
       onSaved(res.data)
       setBlocks(res.data.blockedPeriods)
       setForm({ start: '', end: '', reason: '' })
@@ -711,12 +711,14 @@ function BlockedTab({ doctor, onSaved, showToast }) {
         {/* Add block form */}
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 0 0 1px rgba(0,0,0,0.03),0 2px 8px rgba(0,0,0,0.04)', padding: 24 }}>
           <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 700, color: '#1e293b', margin: '0 0 4px' }}>Block a Period</h2>
-          <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px' }}>Block breaks, holidays, or any unavailable time. Times in UTC — patients won't see these slots.</p>
+          <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 20px' }}>
+            Block breaks, holidays, or unavailable time. Times are in your active timezone (<strong>{TZ_LABELS[tz] || tz}</strong>) — patients won't see these slots.
+          </p>
 
-          <label style={labelStyle}>Start</label>
+          <label style={labelStyle}>Start ({TZ_LABELS[tz] || tz})</label>
           <input type="datetime-local" value={form.start} onChange={e => setForm(f => ({ ...f, start: e.target.value }))} style={inputStyle} />
 
-          <label style={{ ...labelStyle, marginTop: 12 }}>End</label>
+          <label style={{ ...labelStyle, marginTop: 12 }}>End ({TZ_LABELS[tz] || tz})</label>
           <input type="datetime-local" value={form.end} onChange={e => setForm(f => ({ ...f, end: e.target.value }))} style={inputStyle} />
 
           <label style={{ ...labelStyle, marginTop: 12 }}>Reason (optional)</label>
@@ -743,8 +745,9 @@ function BlockedTab({ doctor, onSaved, showToast }) {
               <div key={b._id || i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 24px', borderBottom: i < blocks.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{b.reason || 'Blocked'}</div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
-                    {formatInTz(b.start, tz)} → {formatInTz(b.end, tz)}
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>{formatInTz(b.start, tz)} → {formatInTz(b.end, tz)}</span>
+                    <span style={{ background: '#f1f5f9', color: '#0369a1', borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 700 }}>{TZ_LABELS[tz] || tz}</span>
                   </div>
                 </div>
                 <span style={{ background: '#fee2e2', color: '#dc2626', borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>Blocked</span>

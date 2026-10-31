@@ -180,13 +180,29 @@ router.put('/schedule', protect, async (req, res) => {
 router.post('/block', protect, async (req, res) => {
   try {
     if (req.user.role !== 'doctor') return res.status(403).json({ message: 'Doctors only' });
-    const { start, end, reason } = req.body;
+    const { start, end, reason, timezone } = req.body;
 
     if (!start || !end) return res.status(400).json({ message: 'start and end are required' });
-    if (new Date(start) >= new Date(end)) return res.status(400).json({ message: 'end must be after start' });
 
     const doctor = await User.findById(req.user._id);
-    doctor.blockedPeriods.push({ start: new Date(start), end: new Date(end), reason });
+    const tz = timezone || doctor.timezone || 'Asia/Kolkata';
+
+    // Parse start and end in doctor's active timezone, then convert to UTC
+    const startDt = DateTime.fromISO(start, { zone: tz });
+    const endDt   = DateTime.fromISO(end, { zone: tz });
+
+    if (!startDt.isValid || !endDt.isValid) {
+      return res.status(400).json({ message: 'Invalid start or end date format' });
+    }
+
+    const startUtc = startDt.toUTC().toJSDate();
+    const endUtc   = endDt.toUTC().toJSDate();
+
+    if (startUtc >= endUtc) {
+      return res.status(400).json({ message: 'End time must be after start time' });
+    }
+
+    doctor.blockedPeriods.push({ start: startUtc, end: endUtc, reason });
     await doctor.save();
 
     await invalidateDoctorCache(req.user._id.toString());
