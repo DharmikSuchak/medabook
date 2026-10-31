@@ -29,19 +29,26 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'SlotZero API', timestamp: new Date().toISOString() });
 });
 
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`SlotZero API running on port ${PORT}`);
+});
+
 // Connect to MongoDB
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`SlotZero API running on port ${PORT}`);
+if (!process.env.MONGO_URI) {
+  console.error('CRITICAL: MONGO_URI environment variable is not defined!');
+} else {
+  console.log('Connecting to MongoDB...');
+  mongoose
+    .connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 10000,
+    })
+    .then(() => {
+      console.log('Successfully connected to MongoDB');
+    })
+    .catch((err) => {
+      console.error('MongoDB connection error:', err.message);
     });
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-  });
+}
 
 module.exports = app;
