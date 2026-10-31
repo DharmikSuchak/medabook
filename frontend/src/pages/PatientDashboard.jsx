@@ -42,6 +42,11 @@ const fmtDate = (utcStr, tz) => {
 }
 const fmtFull = (utcStr, tz) => `${fmtTime(utcStr, tz)}, ${fmtDate(utcStr, tz)}`
 const hoursUntil = (utcStr) => (new Date(utcStr) - Date.now()) / 3600000
+const formatDoctorName = (name) => {
+  if (!name) return 'Doctor'
+  const trimmed = name.trim()
+  return /^dr\.?\s+/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`
+}
 
 // ── Toast ─────────────────────────────────────────────────────────────
 function Toast({ msg, type, onClose }) {
@@ -162,7 +167,7 @@ function OverviewTab({ patient, appointments, onNavigate }) {
         <div style={{ background: 'linear-gradient(135deg,#0284c7,#0ea5e9)', borderRadius: 16, padding: 24, marginBottom: 24, color: '#fff' }}>
           <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.8, marginBottom: 8 }}>Next Appointment</div>
           <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
-            Dr. {nextAppt.doctor?.name}
+            {formatDoctorName(nextAppt.doctor?.name)}
           </div>
           <div style={{ opacity: 0.9, fontSize: 14, marginBottom: 12 }}>{nextAppt.doctor?.specialization}</div>
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -199,7 +204,7 @@ function OverviewTab({ patient, appointments, onNavigate }) {
             <div key={a._id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 24px', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
               <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7', flexShrink: 0 }}><Icon name="stethoscope" size={18} /></div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>Dr. {a.doctor?.name}</div>
+                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{formatDoctorName(a.doctor?.name)}</div>
                 <div style={{ fontSize: 12, color: '#94a3b8' }}>{fmtFull(a.startUtc, tz)}</div>
               </div>
               <Badge status={a.status} />
@@ -389,8 +394,126 @@ function RichCalendar({ value, min, onChange }) {
 }
 
 
+// ── BOOKING CONFIRMATION MODAL ─────────────────────────────────────────
+function BookingSuccessModal({ booking, onClose, onGoToAppointments, tz }) {
+  if (!booking) return null
+
+  const { doctor, slot } = booking
+  const docName = formatDoctorName(doctor?.name)
+
+  const dateStr = slot?.startUtc
+    ? new Date(slot.startUtc).toLocaleDateString('en-GB', {
+        timeZone: tz,
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : ''
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)' }} />
+
+      {/* Modal Card */}
+      <div style={{ position: 'relative', background: '#fff', borderRadius: 24, padding: '36px 32px', width: '100%', maxWidth: 490, boxShadow: '0 25px 60px -15px rgba(0,0,0,0.35)', animation: 'modalIn 0.25s cubic-bezier(0.16,1,0.3,1)', textAlign: 'center' }}>
+        
+        {/* Animated Celebration Icon */}
+        <div style={{ width: 68, height: 68, borderRadius: '50%', background: 'linear-gradient(135deg, #dcfce7, #bbf7d0)', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 0 0 10px rgba(220, 252, 231, 0.5)' }}>
+          <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+
+        {/* Status pill */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ecfdf5', color: '#047857', borderRadius: 999, padding: '4px 14px', fontSize: 12, fontWeight: 700, marginBottom: 8, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }}></span>
+          Confirmed & Sync Locked
+        </div>
+        <h2 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 24, fontWeight: 800, color: '#0f172a', margin: '0 0 8px' }}>
+          Booking Confirmed! 🎉
+        </h2>
+        <p style={{ fontSize: 14, color: '#64748b', margin: '0 0 20px', lineHeight: 1.5 }}>
+          Your appointment has been locked with zero conflicts. You can review, reschedule, or cancel it anytime in <strong>My Appointments</strong>.
+        </p>
+
+        {/* Appointment summary card */}
+        <div style={{ background: '#f8fafc', borderRadius: 16, border: '1px solid #e2e8f0', padding: '18px 20px', textAlign: 'left', marginBottom: 20 }}>
+          {/* Doctor row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingBottom: 14, borderBottom: '1px solid #e2e8f0' }}>
+            <div style={{ width: 46, height: 46, borderRadius: 12, background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+              {doctor?.picture ? (
+                <img src={doctor.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                (doctor?.name || 'D')[0]
+              )}
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>{docName}</div>
+              <div style={{ fontSize: 12, color: '#0284c7', fontWeight: 600 }}>{doctor?.specialization || 'General Practice'}</div>
+            </div>
+          </div>
+
+          {/* Time & Date */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12, paddingTop: 14 }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#1e293b', marginTop: 2 }}>{dateStr}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Your Time ({TZ_LABELS[tz] || tz})</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#0284c7', marginTop: 2 }}>
+                {slot?.displayLocal} <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>({doctor?.appointmentLength || 30}m)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Multi-timezone preview */}
+          {slot?.startUtc && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed #e2e8f0', display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11, color: '#64748b' }}>
+              <div><span style={{ fontWeight: 700, color: '#0f172a' }}>🇮🇳 IST:</span> {fmtTime(slot.startUtc, 'Asia/Kolkata')}</div>
+              <div><span style={{ fontWeight: 700, color: '#0f172a' }}>🇬🇧 GMT:</span> {fmtTime(slot.startUtc, 'Europe/London')}</div>
+              <div><span style={{ fontWeight: 700, color: '#0f172a' }}>🇺🇸 ET:</span> {fmtTime(slot.startUtc, 'America/New_York')}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Helpful reminder */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 12, marginBottom: 24, textAlign: 'left' }}>
+          <span style={{ fontSize: 16 }}>📋</span>
+          <span style={{ fontSize: 12, color: '#0369a1', lineHeight: 1.4 }}>
+            You can check all details, reschedule, or cancel this booking anytime from <strong>My Appointments</strong>.
+          </span>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={onGoToAppointments}
+            style={{ flex: 1.3, padding: '12px 18px', background: '#0284c7', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, boxShadow: '0 4px 14px rgba(2,132,199,0.3)', transition: 'all 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#0369a1'}
+            onMouseLeave={e => e.currentTarget.style.background = '#0284c7'}
+          >
+            <span>My Appointments</span>
+            <span>&rarr;</span>
+          </button>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: '12px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+            onMouseLeave={e => e.currentTarget.style.background = '#f1f5f9'}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── BROWSE + BOOK TAB ─────────────────────────────────────────────────
-function BrowseTab({ patient, onBooked, showToast }) {
+function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
   const [doctors, setDoctors] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -401,6 +524,7 @@ function BrowseTab({ patient, onBooked, showToast }) {
   const [slotsLoading, setSlotsLoading] = useState(false)
   const [pickedSlot, setPickedSlot] = useState(null)
   const [booking, setBooking] = useState(false)
+  const [confirmedBooking, setConfirmedBooking] = useState(null)
   const debounceRef = useRef(null)
 
   const fetchDoctors = useCallback(async (n, s) => {
@@ -443,9 +567,14 @@ function BrowseTab({ patient, onBooked, showToast }) {
     if (!pickedSlot) return
     setBooking(true)
     try {
-      await api.post('/appointments', { doctorId: selected._id, startUtc: pickedSlot.startUtc })
-      showToast(`Appointment booked with Dr. ${selected.name}!`, 'success')
+      const res = await api.post('/appointments', { doctorId: selected._id, startUtc: pickedSlot.startUtc })
       onBooked()
+      setConfirmedBooking({
+        doctor: selected,
+        slot: pickedSlot,
+        date: bookDate,
+        appointment: res.data,
+      })
       setSelected(null)
       setSlots([])
       setPickedSlot(null)
@@ -503,11 +632,15 @@ function BrowseTab({ patient, onBooked, showToast }) {
               return (
                 <div key={doc._id} onClick={() => { setSelected(isSelected ? null : doc); setSlots([]); setPickedSlot(null); setBookDate('') }}
                   style={{ background: '#fff', borderRadius: 16, border: `2px solid ${isSelected ? '#0284c7' : '#f1f5f9'}`, boxShadow: isSelected ? '0 0 0 4px rgba(2,132,199,0.1)' : '0 0 0 1px rgba(0,0,0,0.03),0 2px 8px rgba(0,0,0,0.04)', padding: '16px 20px', cursor: 'pointer', transition: 'all 0.18s', display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700, flexShrink: 0 }}>
-                    {doc.name?.[0] || 'D'}
+                  <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                    {doc.picture ? (
+                      <img src={doc.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      doc.name?.[0] || 'D'
+                    )}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 15 }}>Dr. {doc.name}</div>
+                    <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 15 }}>{formatDoctorName(doc.name)}</div>
                     <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>{doc.specialization || 'General Practice'}</div>
                     {doc.bio && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4, maxWidth: 480 }}>{doc.bio.slice(0, 100)}{doc.bio.length > 100 ? '…' : ''}</div>}
                   </div>
@@ -530,7 +663,7 @@ function BrowseTab({ patient, onBooked, showToast }) {
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 0 0 1px rgba(0,0,0,0.03),0 8px 24px rgba(0,0,0,0.06)', overflow: 'visible', position: 'sticky', top: 80 }}>
           <div style={{ background: 'linear-gradient(135deg,#0284c7,#0ea5e9)', padding: '20px 24px', color: '#fff' }}>
             <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.8, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Booking with</div>
-            <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700 }}>Dr. {selected.name}</div>
+            <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700 }}>{formatDoctorName(selected.name)}</div>
             <div style={{ fontSize: 13, opacity: 0.9 }}>{selected.specialization || 'General Practice'} · {selected.appointmentLength || 30} min</div>
           </div>
 
@@ -585,6 +718,19 @@ function BrowseTab({ patient, onBooked, showToast }) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Rich Booking Confirmation Modal */}
+      {confirmedBooking && (
+        <BookingSuccessModal
+          booking={confirmedBooking}
+          tz={tz}
+          onClose={() => setConfirmedBooking(null)}
+          onGoToAppointments={() => {
+            setConfirmedBooking(null)
+            onGoToAppointments?.()
+          }}
+        />
       )}
     </div>
   )
@@ -676,11 +822,15 @@ function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
             return (
               <div key={a._id} style={{ background: '#fff', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 0 0 1px rgba(0,0,0,0.03),0 2px 8px rgba(0,0,0,0.04)', overflow: isRescheduling ? 'visible' : 'hidden', position: 'relative', zIndex: isRescheduling ? 40 : 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 700, flexShrink: 0 }}>
-                    {a.doctor?.name?.[0] || 'D'}
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
+                    {a.doctor?.picture ? (
+                      <img src={a.doctor.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      a.doctor?.name?.[0] || 'D'
+                    )}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 15 }}>Dr. {a.doctor?.name}</div>
+                    <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 15 }}>{formatDoctorName(a.doctor?.name)}</div>
                     <div style={{ fontSize: 13, color: '#64748b' }}>{a.doctor?.specialization}</div>
                     {/* Multi-timezone display */}
                     <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
@@ -981,7 +1131,7 @@ export default function PatientDashboard() {
         </div>
 
         {active === 'overview'     && <OverviewTab patient={patient} appointments={appointments} onNavigate={setActive} />}
-        {active === 'browse'       && <BrowseTab patient={patient} onBooked={fetchAppointments} showToast={showToast} />}
+        {active === 'browse'       && <BrowseTab patient={patient} onBooked={fetchAppointments} showToast={showToast} onGoToAppointments={() => setActive('appointments')} />}
         {active === 'appointments' && <AppointmentsTab appointments={appointments} patient={patient} onRefresh={fetchAppointments} showToast={showToast} />}
       </main>
 
