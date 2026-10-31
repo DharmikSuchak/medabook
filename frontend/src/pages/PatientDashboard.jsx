@@ -571,13 +571,13 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
   const debounceRef = useRef(null)
 
   const SPECIALTIES = [
-    'All',
-    'Cardiologist',
-    'Neurologist',
-    'Orthopedic Surgeon',
-    'Pediatrician',
-    'Dermatologist',
-    'General Practice',
+    { label: 'All Specialties', val: 'All', icon: '🏥' },
+    { label: 'Cardiologist', val: 'Cardiologist', icon: '❤️' },
+    { label: 'Neurologist', val: 'Neurologist', icon: '🧠' },
+    { label: 'Orthopedic Surgeon', val: 'Orthopedic Surgeon', icon: '🦴' },
+    { label: 'Pediatrician', val: 'Pediatrician', icon: '👶' },
+    { label: 'Dermatologist', val: 'Dermatologist', icon: '🧴' },
+    { label: 'General Practice', val: 'General', icon: '🩺' },
   ]
 
   const fetchDoctors = useCallback(async (n, s) => {
@@ -596,8 +596,8 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
     debounceRef.current = setTimeout(() => fetchDoctors(n, s), 400)
   }
 
-  const handleSpecialtyClick = (sp) => {
-    const next = sp === 'All' ? '' : sp
+  const handleSpecialtyClick = (val) => {
+    const next = val === 'All' ? '' : val
     setSpec(next)
     fetchDoctors(search, next)
   }
@@ -723,12 +723,12 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
 
         {/* Specialty Filter Chips */}
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-          {SPECIALTIES.map(s => {
-            const active = (s === 'All' && !spec) || spec === s || (s === 'General Practice' && spec === 'General Practitioner')
+          {SPECIALTIES.map(item => {
+            const active = (item.val === 'All' && !spec) || spec === item.val
             return (
               <button
-                key={s}
-                onClick={() => handleSpecialtyClick(s)}
+                key={item.val}
+                onClick={() => handleSpecialtyClick(item.val)}
                 style={{
                   whiteSpace: 'nowrap',
                   padding: '7px 15px',
@@ -739,41 +739,44 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
                   fontWeight: active ? 700 : 500,
                   fontSize: 12,
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                   transition: 'all 0.15s ease',
                   boxShadow: active ? '0 2px 8px rgba(2,132,199,0.25)' : 'none',
                 }}
               >
-                {s === 'All' ? '🏥 All Specialties' : s}
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Main Content Area: Responsive Grid (or Split when Doctor Selected) */}
-      <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 390px' : 'repeat(auto-fill, minmax(360px, 1fr))', gap: 20, alignItems: 'start' }}>
-        
-        {/* Doctor List */}
-        {loading ? (
-          <div style={{ gridColumn: selected ? 'auto' : '1 / -1', display: 'grid', gridTemplateColumns: selected ? '1fr' : 'repeat(auto-fill, minmax(360px, 1fr))', gap: 16 }}>
-            {[1, 2, 3, 4].map(i => <Sk key={i} h={180} r={20} />)}
+      {/* Main Content Area */}
+      {loading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 390px' : 'repeat(auto-fit, minmax(360px, 1fr))', gap: 20 }}>
+          {[1, 2, 3, 4].map(i => <Sk key={i} h={180} r={20} />)}
+        </div>
+      ) : filteredDoctors.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', padding: '56px 24px', textAlign: 'center', color: '#94a3b8' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f0f9ff', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <Icon name="stethoscope" size={32} />
           </div>
-        ) : filteredDoctors.length === 0 ? (
-          <div style={{ gridColumn: '1 / -1', background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', padding: '56px 24px', textAlign: 'center', color: '#94a3b8' }}>
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f0f9ff', color: '#0284c7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Icon name="stethoscope" size={32} />
-            </div>
-            <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 6px' }}>No specialists found</h3>
-            <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 16px' }}>Try clearing your search terms or filters.</p>
-            <button
-              onClick={() => { setSearch(''); setSpec(''); setTzFilter(''); fetchDoctors('', '') }}
-              style={{ padding: '9px 20px', borderRadius: 10, border: '1px solid #bae6fd', background: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-            >
-              Reset All Filters
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr' : 'contents', gap: 16 }}>
+          <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 6px' }}>No specialists found</h3>
+          <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 16px' }}>Try clearing your search terms or filters.</p>
+          <button
+            onClick={() => { setSearch(''); setSpec(''); setTzFilter(''); fetchDoctors('', '') }}
+            style={{ padding: '9px 20px', borderRadius: 10, border: '1px solid #bae6fd', background: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+          >
+            Reset All Filters
+          </button>
+        </div>
+      ) : selected ? (
+        /* Split view: 1-column list on left, sticky booking panel on right */
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 390px', gap: 24, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {filteredDoctors.map(doc => {
               const isSelected = selected?._id === doc._id
               return (
@@ -798,15 +801,15 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    gap: 16,
+                    gap: 14,
                     position: 'relative',
                     overflow: 'hidden',
                   }}
                   onMouseEnter={(e) => {
                     if (!isSelected) {
                       e.currentTarget.style.borderColor = '#93c5fd'
-                      e.currentTarget.style.transform = 'translateY(-3px)'
-                      e.currentTarget.style.boxShadow = '0 14px 34px -4px rgba(15,23,42,0.08)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                      e.currentTarget.style.boxShadow = '0 12px 28px -4px rgba(15,23,42,0.08)'
                     }
                   }}
                   onMouseLeave={(e) => {
@@ -817,22 +820,11 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
                     }
                   }}
                 >
-                  {/* Selected Indicator Strip */}
                   {isSelected && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 4,
-                        background: 'linear-gradient(90deg, #0284c7, #38bdf8)',
-                      }}
-                    />
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: 'linear-gradient(90deg, #0284c7, #38bdf8)' }} />
                   )}
 
                   <div>
-                    {/* Top Row: Avatar + Identity + TZ */}
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
                       <div
                         style={{
@@ -883,61 +875,38 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                          <span
-                            style={{
-                              background: '#f1f5f9',
-                              color: '#334155',
-                              borderRadius: 6,
-                              padding: '2px 8px',
-                              fontSize: 11,
-                              fontWeight: 700,
-                            }}
-                          >
+                          <span style={{ background: '#f1f5f9', color: '#334155', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
                             {doc.specialization || 'General Practice'}
                           </span>
                           <span style={{ fontSize: 11, color: '#64748b' }}>
-                            ⏱️ {doc.appointmentLength || 30} min slots
+                            ⏱️ {doc.appointmentLength || 30} min session
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Bio */}
                     {doc.bio && (
-                      <p
-                        style={{
-                          fontSize: 13,
-                          color: '#64748b',
-                          lineHeight: 1.5,
-                          margin: '14px 0 0',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                        }}
-                      >
+                      <p style={{ fontSize: 13, color: '#64748b', lineHeight: 1.5, margin: '12px 0 0', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         {doc.bio}
                       </p>
                     )}
                   </div>
 
-                  {/* Footer & Action */}
-                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#047857', fontWeight: 700 }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
                         <span>Telehealth Active</span>
                       </div>
-
                       <button
                         style={{
-                          padding: '8px 16px',
+                          padding: '7px 14px',
                           borderRadius: 10,
                           border: isSelected ? 'none' : '1px solid #bae6fd',
                           background: isSelected ? '#0284c7' : '#f0f9ff',
                           color: isSelected ? '#fff' : '#0284c7',
                           fontWeight: 700,
-                          fontSize: 13,
+                          fontSize: 12,
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
@@ -946,8 +915,7 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
                           boxShadow: isSelected ? '0 4px 12px rgba(2,132,199,0.3)' : 'none',
                         }}
                       >
-                        <span>{isSelected ? '✓ Booking Open' : 'Book Appointment'}</span>
-                        {!isSelected && <span>→</span>}
+                        <span>{isSelected ? '✓ Booking Selected' : 'Select Doctor'}</span>
                       </button>
                     </div>
                   </div>
@@ -955,10 +923,8 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
               )
             })}
           </div>
-        )}
 
-        {/* Elevated Booking Sidebar (When Doctor is Selected) */}
-        {selected && (
+          {/* Sticky Booking Sidebar */}
           <div
             style={{
               background: '#fff',
@@ -1124,8 +1090,186 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        /* Full directory grid across widescreen with auto-fit balance */
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 22 }}>
+          {filteredDoctors.map(doc => {
+            const isSelected = selected?._id === doc._id
+            return (
+              <div
+                key={doc._id}
+                onClick={() => {
+                  setSelected(isSelected ? null : doc)
+                  setSlots([])
+                  setPickedSlot(null)
+                  setBookDate('')
+                }}
+                style={{
+                  background: '#fff',
+                  borderRadius: 22,
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 16px -2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.02)',
+                  padding: '24px',
+                  cursor: 'pointer',
+                  transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: 16,
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#7dd3fc'
+                  e.currentTarget.style.transform = 'translateY(-4px)'
+                  e.currentTarget.style.boxShadow = '0 16px 36px -4px rgba(14,165,233,0.12), 0 2px 6px rgba(0,0,0,0.04)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0'
+                  e.currentTarget.style.transform = 'none'
+                  e.currentTarget.style.boxShadow = '0 4px 16px -2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.02)'
+                }}
+              >
+                <div>
+                  {/* Top Row: Avatar + Identity + TZ */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                    <div
+                      style={{
+                        width: 58,
+                        height: 58,
+                        borderRadius: 18,
+                        background: 'linear-gradient(135deg,#0ea5e9,#6366f1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontFamily: 'Outfit,sans-serif',
+                        fontSize: 24,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        overflow: 'hidden',
+                        boxShadow: '0 6px 18px rgba(14,165,233,0.22)',
+                      }}
+                    >
+                      {doc.picture ? (
+                        <img src={doc.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        doc.name?.[0] || 'D'
+                      )}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                        <div style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 800, color: '#0f172a', fontSize: 18, lineHeight: 1.25 }}>
+                          {formatDoctorName(doc.name)}
+                        </div>
+                        <span
+                          style={{
+                            background: '#e0f2fe',
+                            color: '#0369a1',
+                            borderRadius: 999,
+                            padding: '3px 10px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            flexShrink: 0,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          {doc.timezone === 'Asia/Kolkata' ? '🇮🇳 IST' : doc.timezone === 'Europe/London' ? '🇬🇧 GMT' : '🇺🇸 ET'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            background: '#f1f5f9',
+                            color: '#334155',
+                            borderRadius: 6,
+                            padding: '3px 9px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {doc.specialization || 'General Practice'}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>
+                          ⏱️ {doc.appointmentLength || 30} min session
+                        </span>
+                        <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <Icon name="check" size={11} /> Verified
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bio */}
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: '#64748b',
+                      lineHeight: 1.6,
+                      margin: '14px 0 0',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {doc.bio || 'Experienced certified physician available for cross-timezone consultations and care.'}
+                  </p>
+
+                  {/* Quick Feature Badges */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+                    <span style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 500 }}>
+                      🎥 1-on-1 Telehealth
+                    </span>
+                    <span style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 500 }}>
+                      ⚡ Instant Hold
+                    </span>
+                    <span style={{ background: '#f8fafc', border: '1px solid #e2e8f0', color: '#475569', borderRadius: 6, padding: '3px 9px', fontSize: 11, fontWeight: 500 }}>
+                      🛡️ Real-Time Sync
+                    </span>
+                  </div>
+                </div>
+
+                {/* Footer & Action */}
+                <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#047857', fontWeight: 700 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 0 3px rgba(16,185,129,0.2)' }} />
+                      <span>Available for Booking</span>
+                    </div>
+
+                    <button
+                      style={{
+                        padding: '9px 18px',
+                        borderRadius: 12,
+                        border: 'none',
+                        background: 'linear-gradient(135deg,#0284c7,#0ea5e9)',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        boxShadow: '0 4px 14px rgba(2,132,199,0.28)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>Book Appointment</span>
+                      <span>→</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Rich Booking Confirmation Modal */}
       {confirmedBooking && (
