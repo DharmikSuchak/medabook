@@ -23,6 +23,9 @@ const Icon = ({ name, size = 20 }) => {
     shield:   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
     edit:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
     trash:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+    video:    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>,
+    lock:     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+    arrowRight: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
   }
   return icons[name] || null
 }
@@ -48,6 +51,36 @@ const formatDoctorName = (name) => {
   return /^dr\.?\s+/i.test(trimmed) ? trimmed : `Dr. ${trimmed}`
 }
 
+const getDateParts = (utcStr, tz) => {
+  try {
+    const d = new Date(utcStr)
+    const month = new Intl.DateTimeFormat('en-GB', { timeZone: tz, month: 'short' }).format(d).toUpperCase()
+    const day = new Intl.DateTimeFormat('en-GB', { timeZone: tz, day: '2-digit' }).format(d)
+    const weekday = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short' }).format(d).toUpperCase()
+    const fullDate = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(d)
+    return { month, day, weekday, fullDate }
+  } catch {
+    return { month: '—', day: '—', weekday: '—', fullDate: '' }
+  }
+}
+
+const getUrgencyLabel = (utcStr) => {
+  const diffHours = (new Date(utcStr) - Date.now()) / 3600000
+  if (diffHours < 0) return null
+  if (diffHours <= 2) {
+    const mins = Math.max(1, Math.round(diffHours * 60))
+    return { text: `Starting in ~${mins}m`, urgent: true }
+  }
+  if (diffHours <= 24) {
+    return { text: 'Today', urgent: false }
+  }
+  if (diffHours <= 48) {
+    return { text: 'Tomorrow', urgent: false }
+  }
+  const days = Math.round(diffHours / 24)
+  return { text: `In ${days}d`, urgent: false }
+}
+
 // ── Toast ─────────────────────────────────────────────────────────────
 function Toast({ msg, type, onClose }) {
   useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t) }, [onClose])
@@ -61,9 +94,18 @@ function Toast({ msg, type, onClose }) {
 
 // ── Badge ─────────────────────────────────────────────────────────────
 function Badge({ status }) {
-  const m = { confirmed: ['#dcfce7','#15803d','Confirmed'], cancelled: ['#fee2e2','#dc2626','Cancelled'], rescheduled: ['#fef3c7','#b45309','Rescheduled'] }
-  const [bg, color, label] = m[status] || ['#f1f5f9','#64748b', status]
-  return <span style={{ background: bg, color, borderRadius: 999, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{label}</span>
+  const m = {
+    confirmed:   ['#ecfdf5', '#047857', '#10b981', 'Confirmed'],
+    cancelled:   ['#fff1f2', '#be123c', '#f43f5e', 'Cancelled'],
+    rescheduled: ['#fffbeb', '#b45309', '#f59e0b', 'Rescheduled'],
+  }
+  const [bg, color, dotColor, label] = m[status] || ['#f1f5f9', '#475569', '#94a3b8', status]
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: bg, color, borderRadius: 999, padding: '3px 12px', fontSize: 12, fontWeight: 700, border: `1px solid ${status === 'confirmed' ? '#a7f3d0' : status === 'cancelled' ? '#fecdd3' : '#fde68a'}` }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, boxShadow: status === 'confirmed' ? '0 0 6px #10b981' : 'none' }} />
+      {label}
+    </span>
+  )
 }
 
 // ── Skeleton ──────────────────────────────────────────────────────────
@@ -737,7 +779,7 @@ function BrowseTab({ patient, onBooked, showToast, onGoToAppointments }) {
 }
 
 // ── APPOINTMENTS TAB ──────────────────────────────────────────────────
-function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
+function AppointmentsTab({ appointments, patient, onRefresh, showToast, onNavigate }) {
   const [filter, setFilter]       = useState('upcoming')
   const [cancelling, setCancelling] = useState(null)
   const [reschedule, setReschedule] = useState(null) // { appt, newDate, slots, newSlot }
@@ -746,6 +788,18 @@ function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
 
   const tz = patient?.timezone || 'Asia/Kolkata'
   const now = new Date()
+
+  const upcomingCount = appointments.filter(a => a.status === 'confirmed' && new Date(a.startUtc) > now).length
+  const pastCount     = appointments.filter(a => a.status === 'confirmed' && new Date(a.startUtc) <= now).length
+  const cancelledCount= appointments.filter(a => a.status === 'cancelled').length
+  const allCount      = appointments.length
+
+  const filterCounts = {
+    upcoming: upcomingCount,
+    past: pastCount,
+    cancelled: cancelledCount,
+    all: allCount,
+  }
 
   const filtered = appointments.filter(a => {
     if (filter === 'upcoming') return a.status === 'confirmed' && new Date(a.startUtc) > now
@@ -797,120 +851,637 @@ function AppointmentsTab({ appointments, patient, onRefresh, showToast }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>My Appointments</h1>
-        <div style={{ display: 'flex', gap: 8, background: '#f1f5f9', borderRadius: 12, padding: 4 }}>
-          {['upcoming','past','cancelled','all'].map(f => (
-            <button key={f} onClick={() => setFilter(f)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: filter === f ? '#fff' : 'transparent', color: filter === f ? '#0f172a' : '#64748b', fontWeight: filter === f ? 700 : 500, fontSize: 13, cursor: 'pointer', boxShadow: filter === f ? '0 1px 3px rgba(0,0,0,0.08)' : 'none', transition: 'all 0.15s', textTransform: 'capitalize' }}>{f}</button>
-          ))}
+      {/* Header & Filter Controls */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <h1 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 26, fontWeight: 800, color: '#0f172a', margin: '0 0 4px' }}>
+            My Appointments
+          </h1>
+          <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>
+            Real-time cross-timezone appointments synchronized to your active timezone: <strong style={{ color: '#0284c7' }}>{TZ_LABELS[tz] || tz}</strong>
+          </p>
+        </div>
+
+        {/* Filter Pills with Counters */}
+        <div style={{ display: 'flex', gap: 4, background: '#f1f5f9', borderRadius: 14, padding: 4, border: '1px solid #e2e8f0' }}>
+          {['upcoming', 'past', 'cancelled', 'all'].map(f => {
+            const active = filter === f
+            const count = filterCounts[f]
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '7px 14px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: active ? '#fff' : 'transparent',
+                  color: active ? '#0284c7' : '#64748b',
+                  fontWeight: active ? 700 : 500,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  boxShadow: active ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'all 0.15s ease',
+                  textTransform: 'capitalize',
+                }}
+              >
+                <span>{f}</span>
+                <span
+                  style={{
+                    background: active ? '#e0f2fe' : '#e2e8f0',
+                    color: active ? '#0369a1' : '#64748b',
+                    borderRadius: 999,
+                    padding: '1px 7px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                  }}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
+      {/* Empty State */}
       {filtered.length === 0 ? (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #f1f5f9', padding: '56px 24px', textAlign: 'center', color: '#94a3b8' }}>
-          <Icon name="calendar" size={40} />
-          <p style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700, color: '#1e293b', margin: '12px 0 4px' }}>No {filter} appointments</p>
-          <p style={{ fontSize: 14, margin: 0 }}>Book a slot from the Find Doctors tab.</p>
+        <div
+          style={{
+            background: '#fff',
+            borderRadius: 20,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 20px -2px rgba(15,23,42,0.03)',
+            padding: '60px 24px',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: '50%',
+              background: '#f0f9ff',
+              color: '#0284c7',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}
+          >
+            <Icon name="calendar" size={32} />
+          </div>
+          <h3 style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 6px' }}>
+            No {filter} appointments found
+          </h3>
+          <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 20px', maxWidth: 420, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
+            {filter === 'upcoming'
+              ? 'You have no consultations on your schedule. Find a certified doctor and book across timezones in seconds.'
+              : `You have no ${filter} appointments in your records.`}
+          </p>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('browse')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '11px 24px',
+                background: '#0284c7',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 12,
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(2,132,199,0.3)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#0369a1')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#0284c7')}
+            >
+              <span>Find a Doctor</span>
+              <Icon name="arrowRight" size={16} />
+            </button>
+          )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {filtered.map(a => {
             const canCancel   = a.status === 'confirmed' && hoursUntil(a.startUtc) >= 2
             const canReschedule = a.status === 'confirmed' && hoursUntil(a.startUtc) >= 2
             const isRescheduling = reschedule?.appt?._id === a._id
+            const dateParts = getDateParts(a.startUtc, tz)
+            const urgency = a.status === 'confirmed' ? getUrgencyLabel(a.startUtc) : null
 
             return (
-              <div key={a._id} style={{ background: '#fff', borderRadius: 16, border: '1px solid #f1f5f9', boxShadow: '0 0 0 1px rgba(0,0,0,0.03),0 2px 8px rgba(0,0,0,0.04)', overflow: isRescheduling ? 'visible' : 'hidden', position: 'relative', zIndex: isRescheduling ? 40 : 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,#0ea5e9,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'Outfit,sans-serif', fontSize: 18, fontWeight: 700, flexShrink: 0, overflow: 'hidden' }}>
-                    {a.doctor?.picture ? (
-                      <img src={a.doctor.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : (
-                      a.doctor?.name?.[0] || 'D'
+              <div
+                key={a._id}
+                style={{
+                  background: '#fff',
+                  borderRadius: 20,
+                  border: isRescheduling ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                  boxShadow: isRescheduling
+                    ? '0 12px 30px rgba(2,132,199,0.12)'
+                    : '0 4px 20px -2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.02)',
+                  transition: 'all 0.2s ease',
+                  overflow: isRescheduling ? 'visible' : 'hidden',
+                  position: 'relative',
+                  zIndex: isRescheduling ? 40 : 1,
+                }}
+              >
+                {/* Top Meta Bar */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 20px',
+                    background: '#f8fafc',
+                    borderBottom: '1px solid #f1f5f9',
+                    fontSize: 12,
+                    flexWrap: 'wrap',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {urgency && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '3px 10px',
+                          borderRadius: 999,
+                          background: urgency.urgent ? '#fee2e2' : '#e0f2fe',
+                          color: urgency.urgent ? '#dc2626' : '#0369a1',
+                          fontWeight: 700,
+                          fontSize: 11,
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            background: urgency.urgent ? '#dc2626' : '#0284c7',
+                            animation: urgency.urgent ? 'pulseGlow 1.2s infinite' : 'none',
+                          }}
+                        />
+                        {urgency.text}
+                      </span>
                     )}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#475569', fontWeight: 600 }}>
+                      <Icon name="video" size={14} /> Telehealth Consultation
+                    </span>
+                    <span style={{ color: '#cbd5e1' }}>•</span>
+                    <span style={{ color: '#64748b', fontSize: 11 }}>
+                      Ref: <code style={{ color: '#334155', fontWeight: 600, background: '#f1f5f9', padding: '1px 6px', borderRadius: 4 }}>#{a._id.slice(-6).toUpperCase()}</code>
+                    </span>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 15 }}>{formatDoctorName(a.doctor?.name)}</div>
-                    <div style={{ fontSize: 13, color: '#64748b' }}>{a.doctor?.specialization}</div>
-                    {/* Multi-timezone display */}
-                    <div style={{ display: 'flex', gap: 16, marginTop: 8, flexWrap: 'wrap' }}>
-                      {[['Asia/Kolkata','IST'],['Europe/London','GMT'],['America/New_York','ET']].map(([zone, label]) => (
-                        <div key={zone} style={{ background: '#f8fafc', borderRadius: 8, padding: '4px 10px' }}>
-                          <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 700 }}>{label}</span>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>{fmtTime(a.startUtc, zone)}</div>
-                          <div style={{ fontSize: 11, color: '#94a3b8' }}>{fmtDate(a.startUtc, zone)}</div>
-                        </div>
-                      ))}
+
+                  <Badge status={a.status} />
+                </div>
+
+                {/* Main Content Row */}
+                <div
+                  style={{
+                    padding: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 20,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  {/* Left: Tear-sheet Calendar Tile */}
+                  <div
+                    style={{
+                      width: 68,
+                      height: 72,
+                      borderRadius: 14,
+                      overflow: 'hidden',
+                      border: '1px solid #e2e8f0',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                      textAlign: 'center',
+                      flexShrink: 0,
+                      background: '#fff',
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: 'linear-gradient(135deg,#0284c7,#0ea5e9)',
+                        color: '#fff',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: '0.08em',
+                        padding: '3px 0',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {dateParts.month}
+                    </div>
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <div style={{ fontFamily: 'Outfit,sans-serif', fontSize: 20, fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
+                        {dateParts.day}
+                      </div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginTop: 2 }}>
+                        {dateParts.weekday}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Center: Doctor Info & Appointment Time */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 260 }}>
+                    {/* Doctor photo/avatar */}
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 14,
+                        background: 'linear-gradient(135deg,#0ea5e9,#6366f1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#fff',
+                        fontFamily: 'Outfit,sans-serif',
+                        fontSize: 18,
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        overflow: 'hidden',
+                        boxShadow: '0 3px 10px rgba(14,165,233,0.2)',
+                      }}
+                    >
+                      {a.doctor?.picture ? (
+                        <img src={a.doctor.picture} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        a.doctor?.name?.[0] || 'D'
+                      )}
+                    </div>
+
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: 'Outfit,sans-serif', fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+                          {formatDoctorName(a.doctor?.name)}
+                        </span>
+                        <span
+                          style={{
+                            background: '#f0f9ff',
+                            color: '#0369a1',
+                            border: '1px solid #bae6fd',
+                            borderRadius: 6,
+                            padding: '2px 8px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {a.doctor?.specialization || 'General Practice'}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#0284c7', fontWeight: 800, fontSize: 15 }}>
+                          <Icon name="clock" size={15} />
+                          <span>{fmtTime(a.startUtc, tz)}</span>
+                        </div>
+                        <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>({TZ_LABELS[tz] || tz})</span>
+                        <span style={{ color: '#cbd5e1' }}>•</span>
+                        <span style={{ fontSize: 13, color: '#475569' }}>{dateParts.fullDate}</span>
+                        <span style={{ color: '#cbd5e1' }}>•</span>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>{a.doctor?.appointmentLength || 30} min session</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Actions */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                    <Badge status={a.status} />
                     {a.status === 'confirmed' && (
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {canReschedule && (
-                          <button onClick={() => isRescheduling ? setReschedule(null) : openReschedule(a)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: isRescheduling ? '#f1f5f9' : '#dbeafe', border: 'none', borderRadius: 8, color: isRescheduling ? '#64748b' : '#1d4ed8', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>
-                            <Icon name="edit" size={12} /> Reschedule
+                          <button
+                            onClick={() => (isRescheduling ? setReschedule(null) : openReschedule(a))}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '8px 14px',
+                              background: isRescheduling ? '#e2e8f0' : '#eff6ff',
+                              border: `1px solid ${isRescheduling ? '#cbd5e1' : '#bfdbfe'}`,
+                              borderRadius: 10,
+                              color: isRescheduling ? '#475569' : '#1d4ed8',
+                              fontWeight: 700,
+                              fontSize: 13,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isRescheduling) e.currentTarget.style.background = '#dbeafe'
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!isRescheduling) e.currentTarget.style.background = '#eff6ff'
+                            }}
+                          >
+                            <Icon name="edit" size={14} />
+                            {isRescheduling ? 'Close' : 'Reschedule'}
                           </button>
                         )}
+
                         {canCancel && (
-                          <button onClick={() => cancelAppt(a)} disabled={cancelling === a._id}
-                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: '#fee2e2', border: 'none', borderRadius: 8, color: '#dc2626', fontWeight: 700, fontSize: 12, cursor: cancelling === a._id ? 'not-allowed' : 'pointer', opacity: cancelling === a._id ? 0.6 : 1 }}>
-                            <Icon name="trash" size={12} /> {cancelling === a._id ? '…' : 'Cancel'}
+                          <button
+                            onClick={() => cancelAppt(a)}
+                            disabled={cancelling === a._id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '8px 14px',
+                              background: '#fff1f2',
+                              border: '1px solid #fecdd3',
+                              borderRadius: 10,
+                              color: '#e11d48',
+                              fontWeight: 700,
+                              fontSize: 13,
+                              cursor: cancelling === a._id ? 'not-allowed' : 'pointer',
+                              opacity: cancelling === a._id ? 0.6 : 1,
+                              transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = '#ffe4e6')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = '#fff1f2')}
+                          >
+                            <Icon name="trash" size={14} />
+                            {cancelling === a._id ? 'Cancelling…' : 'Cancel'}
                           </button>
                         )}
+
                         {!canCancel && new Date(a.startUtc) > now && (
-                          <span style={{ fontSize: 11, color: '#b45309', background: '#fef3c7', borderRadius: 8, padding: '4px 10px', fontWeight: 600 }}>
-                            &lt;2h: no cancel
-                          </span>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              background: '#fef3c7',
+                              border: '1px solid #fde68a',
+                              color: '#b45309',
+                              borderRadius: 8,
+                              padding: '6px 10px',
+                              fontSize: 11,
+                              fontWeight: 700,
+                            }}
+                            title="Appointments cannot be cancelled within 2 hours of scheduled time"
+                          >
+                            <Icon name="lock" size={12} />
+                            <span>Lock: &lt;2h before visit</span>
+                          </div>
                         )}
                       </div>
+                    )}
+
+                    {a.status === 'cancelled' && (
+                      <span style={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
+                        Appointment cancelled
+                      </span>
                     )}
                   </div>
                 </div>
 
-                {/* Inline reschedule panel */}
-                {isRescheduling && (
-                  <div style={{ borderTop: '1px solid #f1f5f9', padding: '20px', background: '#f8fafc', borderRadius: '0 0 16px 16px', overflow: 'visible', position: 'relative' }}>
-                    <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 14, marginBottom: 12 }}>Reschedule to a new slot</div>
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                      <div style={{ width: 280, position: 'relative', zIndex: 100 }}>
-                        <RichCalendar value={reschedule.newDate} min={new Date().toISOString().slice(0,10)} onChange={fetchRescheduleSlots} />
+                {/* Bottom Cross-Timezone World Clock Strip */}
+                <div
+                  style={{
+                    padding: '12px 20px',
+                    background: '#f8fafc',
+                    borderTop: '1px solid #f1f5f9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <Icon name="globe" size={14} />
+                    <span>3-Zone Sync:</span>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+                    {[
+                      ['Asia/Kolkata', 'IST', '🇮🇳 IST (India)', 'Asia/Kolkata' === tz],
+                      ['Europe/London', 'GMT', '🇬🇧 GMT (London)', 'Europe/London' === tz],
+                      ['America/New_York', 'ET', '🇺🇸 ET (New York)', 'America/New_York' === tz],
+                    ].map(([zone, label, city, isUserTz]) => (
+                      <div
+                        key={zone}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '4px 10px',
+                          borderRadius: 8,
+                          background: isUserTz ? '#f0f9ff' : '#fff',
+                          border: `1px solid ${isUserTz ? '#7dd3fc' : '#e2e8f0'}`,
+                          fontSize: 12,
+                        }}
+                      >
+                        <span style={{ color: '#475569', fontWeight: 500 }}>{city}:</span>
+                        <span style={{ fontWeight: 700, color: isUserTz ? '#0284c7' : '#0f172a' }}>
+                          {fmtTime(a.startUtc, zone)}
+                        </span>
+                        <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                          {fmtDate(a.startUtc, zone)}
+                        </span>
+                        {isUserTz && (
+                          <span style={{ background: '#0284c7', color: '#fff', borderRadius: 4, padding: '0 4px', fontSize: 9, fontWeight: 700 }}>
+                            YOU
+                          </span>
+                        )}
                       </div>
-                      {slotsLoading && <div style={{ marginTop: 6 }}><Sk h={36} w={260} /></div>}
-                      {!slotsLoading && reschedule.slots.length > 0 && (
-                        <div style={{ flex: 1, minWidth: 260 }}>
-                          <label style={{ ...labelStyle, marginBottom: 6 }}>Pick a slot ({TZ_LABELS[tz] || tz})</label>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Inline Reschedule Drawer */}
+                {isRescheduling && (
+                  <div
+                    style={{
+                      borderTop: '2px solid #bae6fd',
+                      padding: '24px',
+                      background: '#f0f9ff',
+                      borderRadius: '0 0 20px 20px',
+                      animation: 'slideUp 0.2s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                      <div>
+                        <div style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 700, color: '#0369a1', fontSize: 16 }}>
+                          Select a New Date & Time Slot
+                        </div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                          Original appointment remains confirmed until you finalize a new slot.
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setReschedule(null)}
+                        style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 4 }}
+                      >
+                        <Icon name="x" size={18} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                      <div style={{ width: 280, position: 'relative', zIndex: 100 }}>
+                        <label style={{ ...labelStyle, marginBottom: 8, color: '#0369a1' }}>1. Choose Date</label>
+                        <RichCalendar
+                          value={reschedule.newDate}
+                          min={new Date().toISOString().slice(0, 10)}
+                          onChange={fetchRescheduleSlots}
+                        />
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 280 }}>
+                        <label style={{ ...labelStyle, marginBottom: 8, color: '#0369a1' }}>
+                          2. Choose Slot ({TZ_LABELS[tz] || tz})
+                        </label>
+                        {slotsLoading && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <Sk h={36} />
+                            <Sk h={36} />
+                          </div>
+                        )}
+
+                        {!slotsLoading && reschedule.slots.length > 0 && (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 8 }}>
                             {reschedule.slots.map((s, i) => {
                               const on = reschedule.newSlot?.startUtc === s.startUtc
                               return (
-                                <button key={i} onClick={() => setReschedule(r => ({ ...r, newSlot: on ? null : s }))}
-                                  style={{ padding: '7px 14px', borderRadius: 8, border: `2px solid ${on ? '#0284c7' : '#e2e8f0'}`, background: on ? '#f0f9ff' : '#fff', color: on ? '#0284c7' : '#334155', fontWeight: on ? 700 : 500, fontSize: 13, cursor: 'pointer', transition: 'all 0.12s' }}>
+                                <button
+                                  key={i}
+                                  onClick={() => setReschedule((r) => ({ ...r, newSlot: on ? null : s }))}
+                                  style={{
+                                    padding: '9px 12px',
+                                    borderRadius: 10,
+                                    border: `2px solid ${on ? '#0284c7' : '#e2e8f0'}`,
+                                    background: on ? '#0284c7' : '#fff',
+                                    color: on ? '#fff' : '#1e293b',
+                                    fontWeight: on ? 700 : 600,
+                                    fontSize: 13,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.15s ease',
+                                    boxShadow: on ? '0 4px 12px rgba(2,132,199,0.3)' : 'none',
+                                  }}
+                                >
                                   {s.displayLocal}
                                 </button>
                               )
                             })}
                           </div>
-                        </div>
-                      )}
-                      {!slotsLoading && reschedule.newDate && reschedule.slots.length === 0 && (
-                        <div style={{ marginTop: 8, fontSize: 13, color: '#94a3b8' }}>No available slots on this day</div>
-                      )}
+                        )}
+
+                        {!slotsLoading && reschedule.newDate && reschedule.slots.length === 0 && (
+                          <div
+                            style={{
+                              padding: '24px 16px',
+                              background: '#fff',
+                              border: '1px dashed #cbd5e1',
+                              borderRadius: 12,
+                              textAlign: 'center',
+                              color: '#64748b',
+                              fontSize: 13,
+                            }}
+                          >
+                            No available slots on this day. Please select another date.
+                          </div>
+                        )}
+
+                        {!reschedule.newDate && (
+                          <div
+                            style={{
+                              padding: '24px 16px',
+                              background: '#fff',
+                              border: '1px dashed #cbd5e1',
+                              borderRadius: 12,
+                              textAlign: 'center',
+                              color: '#94a3b8',
+                              fontSize: 13,
+                            }}
+                          >
+                            Pick a date on the left to view available openings
+                          </div>
+                        )}
+                      </div>
                     </div>
+
                     {reschedule.newSlot && (
-                      <div style={{ marginTop: 14, padding: '10px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10, fontSize: 13, color: '#0369a1', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 600 }}>Selected slot:</span>
-                        <strong>{reschedule.newSlot.displayLocal} ({TZ_LABELS[tz] || tz})</strong>
+                      <div
+                        style={{
+                          marginTop: 16,
+                          padding: '12px 16px',
+                          background: '#fff',
+                          border: '1px solid #7dd3fc',
+                          borderRadius: 12,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 12,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 11, color: '#0369a1', fontWeight: 700, textTransform: 'uppercase' }}>
+                            Selected New Time ({TZ_LABELS[tz] || tz})
+                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
+                            {reschedule.newSlot.displayLocal} · {fmtDate(reschedule.newSlot.startUtc, tz)}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 10 }}>
+                          <button
+                            onClick={submitReschedule}
+                            disabled={submitting}
+                            style={{
+                              padding: '10px 20px',
+                              background: submitting ? '#94a3b8' : '#0284c7',
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: 10,
+                              fontWeight: 700,
+                              fontSize: 13,
+                              cursor: submitting ? 'not-allowed' : 'pointer',
+                              boxShadow: '0 4px 14px rgba(2,132,199,0.3)',
+                            }}
+                          >
+                            {submitting ? 'Rescheduling…' : 'Confirm Reschedule'}
+                          </button>
+                          <button
+                            onClick={() => setReschedule(null)}
+                            style={{
+                              padding: '10px 16px',
+                              background: '#f1f5f9',
+                              border: 'none',
+                              borderRadius: 10,
+                              fontWeight: 600,
+                              fontSize: 13,
+                              color: '#64748b',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            Keep Current Slot
+                          </button>
+                        </div>
                       </div>
                     )}
-                    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                      <button onClick={submitReschedule} disabled={!reschedule.newSlot || submitting}
-                        style={{ padding: '9px 20px', background: (!reschedule.newSlot || submitting) ? '#94a3b8' : '#0284c7', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 13, cursor: (!reschedule.newSlot || submitting) ? 'not-allowed' : 'pointer' }}>
-                        {submitting ? 'Rescheduling…' : 'Confirm Reschedule'}
-                      </button>
-                      <button onClick={() => setReschedule(null)} style={{ padding: '9px 20px', background: '#f1f5f9', border: 'none', borderRadius: 10, fontWeight: 600, fontSize: 13, color: '#64748b', cursor: 'pointer' }}>Cancel</button>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1109,6 +1680,7 @@ export default function PatientDashboard() {
         @keyframes modalIn { from{opacity:0;transform:scale(0.95) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes tzIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
         @keyframes calIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulseGlow { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.15); } }
         * { box-sizing: border-box; }
         input:focus, select:focus, textarea:focus { border-color: #0ea5e9 !important; box-shadow: 0 0 0 3px rgba(14,165,233,0.1) !important; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.45); border-radius: 4px; }
@@ -1132,7 +1704,7 @@ export default function PatientDashboard() {
 
         {active === 'overview'     && <OverviewTab patient={patient} appointments={appointments} onNavigate={setActive} />}
         {active === 'browse'       && <BrowseTab patient={patient} onBooked={fetchAppointments} showToast={showToast} onGoToAppointments={() => setActive('appointments')} />}
-        {active === 'appointments' && <AppointmentsTab appointments={appointments} patient={patient} onRefresh={fetchAppointments} showToast={showToast} />}
+        {active === 'appointments' && <AppointmentsTab appointments={appointments} patient={patient} onRefresh={fetchAppointments} showToast={showToast} onNavigate={setActive} />}
       </main>
 
       {showPatientProfile && (
