@@ -20,20 +20,21 @@ let isRedisConnected = false;
 if (process.env.REDIS_URL) {
   try {
     client = new Redis(process.env.REDIS_URL, {
-      maxRetriesPerRequest: 2,
-      enableOfflineQueue: false,
+      maxRetriesPerRequest: null,
+      enableOfflineQueue: true,
       connectTimeout: 5000,
       retryStrategy(times) {
-        if (times > 3) {
-          return null; // Stop reconnecting after 3 tries
-        }
         return Math.min(times * 500, 2000);
       },
     });
 
-    client.on('connect', () => {
+    client.on('ready', () => {
       isRedisConnected = true;
-      console.log('Connected to Redis');
+      console.log('Connected to Redis and ready for commands');
+    });
+
+    client.on('close', () => {
+      isRedisConnected = false;
     });
 
     client.on('error', (err) => {
